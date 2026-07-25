@@ -4,7 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>نظام حجز إدارة رحلات السفينة</title>
+    <!-- مكتبة الباركود -->
     <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
+    <!-- مكتبة تحويل HTML إلى PDF -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <style>
         body { font-family: system-ui, sans-serif; background: #f1f5f9; margin: 0; padding: 20px; direction: rtl; }
         .container { max-width: 900px; margin: 0 auto; background: #fff; padding: 25px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
@@ -19,12 +22,14 @@
         .btn-danger { background: #ef4444; color: white; }
         .btn-warning { background: #f59e0b; color: white; }
         .btn-print { background: #10b981; color: white; margin-bottom: 10px; }
+        .btn-pdf { background: #8b5cf6; color: white; margin-top: 15px; font-size: 1rem; width: 100%; }
         table { width: 100%; border-collapse: collapse; margin-top: 15px; }
         th, td { border: 1px solid #e2e8f0; padding: 10px; text-align: center; }
         th { background: #f8fafc; }
-        .ticket-box { display: none; margin-top: 20px; padding: 20px; border: 2px dashed #0284c7; background: #f0fdf4; border-radius: 8px; text-align: center; }
         
-        /* إخفاء النظام الرئيسي إجبارياً حتى تسجيل الدخول */
+        /* تصميم التذكرة المخصصة للطباعة والـ PDF */
+        .ticket-box { display: none; margin-top: 20px; padding: 25px; border: 2px dashed #0284c7; background: #ffffff; border-radius: 12px; text-align: center; }
+        
         #mainApp { display: none !important; }
         #loginSection { display: block !important; }
 
@@ -98,12 +103,25 @@
         <button type="submit" id="submitBtn" class="btn-primary">تأكيد الحجز وإصدار التذكرة</button>
     </form>
 
-    <!-- التذكرة والباركود -->
+    <!-- التذكرة القابلة للتنزيل PDF -->
     <div id="ticketResult" class="ticket-box">
-        <h3 style="color:#166534; margin:0;">🎫 تذكرة سفر مؤكدة</h3>
-        <p>الاسم: <b id="tName"></b> | رقم المقعد: <b id="tSeat"></b> | الموعد: <b id="tDate"></b></p>
-        <p>المسار: <b id="tRoute"></b> | المصدر: <b id="tSource"></b></p>
-        <svg id="barcode"></svg>
+        <div id="ticketPrintArea" style="padding: 15px; background: #fff; border-radius: 8px;">
+            <h2 style="color:#0284c7; margin:0 0 10px 0;">🎫 تذكرة سفر بحرية مؤكدة</h2>
+            <p style="font-size: 0.9rem; color: #64748b;">خط: البصرة ⇆ المحمرة</p>
+            <hr style="border: 0.5px solid #e2e8f0;">
+            <div style="text-align: right; line-height: 1.8; font-size: 1.05rem; margin-top: 10px;">
+                <p><b>اسم المسافر:</b> <span id="tName"></span></p>
+                <p><b>رقم المقعد:</b> <span id="tSeat" style="color:#166534; font-weight:bold;"></span></p>
+                <p><b>تاريخ السفر:</b> <span id="tDate"></span></p>
+                <p><b>المسار:</b> <span id="tRoute"></span></p>
+                <p><b>مصدر الحجز:</b> <span id="tSource"></span></p>
+            </div>
+            <div style="margin-top: 15px;">
+                <svg id="barcode"></svg>
+            </div>
+        </div>
+        <!-- زر تنزيل PDF -->
+        <button class="btn-pdf" onclick="downloadPDF()">📄 تنزيل التذكرة بصيغة PDF</button>
     </div>
 
     <hr style="margin: 30px 0;">
@@ -194,8 +212,7 @@
         
         const tbody = document.getElementById('tableBody');
         const mBody = document.getElementById('manifestBody');
-        tbody.
-            innerHTML = '';
+        tbody.innerHTML = '';
         mBody.innerHTML = '';
 
         data.bookings.forEach(b => {
@@ -261,6 +278,22 @@
             loadData();
         }
     });
+
+    // دالة تنزيل التذكرة PDF
+    function downloadPDF() {
+        const element = document.getElementById('ticketPrintArea');
+        const passengerName = document.getElementById('tName').innerText || 'تذكرة';
+        
+        const opt = {
+            margin:       0.5,
+            filename:     تذكرة_${passengerName}.pdf,
+            image:        { type: 'jpeg', quality: 0.98 },
+            html2canvas:  { scale: 2 },
+            jsPDF:        { unit: 'in', format: 'a5', orientation: 'portrait' }
+        };
+
+        html2pdf().set(opt).from(element).save();
+    }
 
     function editBooking(id, name, passport, route, travelDate, source) {
         document.getElementById('editId').value = id;
