@@ -161,54 +161,24 @@
 </div>
 
 <script>
-    // تسجيل الدخول مع معالجة الأخطاء
-    document.getElementById('loginForm').addEventListener('submit', async (e) => {
+    // تخزين الحجوزات محلياً لتفادي مشاكل الاتصال بالسيرفر
+    let localBookings = JSON.parse(localStorage.getItem('ferry_bookings') || '[]');
+
+    // تسجيل الدخول المباشر
+    document.getElementById('loginForm').addEventListener('submit', function(e) {
         e.preventDefault();
-        const username = document.getElementById('username').value.trim();
-        const password = document.getElementById('password').value.trim();
-        const errorAlert = document.getElementById('errorAlert');
-        const loginBtn = document.getElementById('loginBtn');
+        const u = document.getElementById('username').value.trim();
+        const p = document.getElementById('password').value.trim();
+        const err = document.getElementById('errorAlert');
 
-        errorAlert.style.display = 'none';
-        loginBtn.innerText = 'جاري التحقق...';
-
-        try {
-            const res = await fetch('/api/login', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ username, password })
-            });
-
-            if (!res.ok) {
-                throw new Error('اسم المستخدم أو كلمة المرور غير صحيحة');
-            }
-
-            const data = await res.json();
-
-            if (data.success) {
-                sessionStorage.setItem('loggedIn', 'true');
-                showMainApp();
-            } else {
-                showError(data.error || 'فشل تسجيل الدخول');
-            }
-        } catch (err) {
-            // في حال مطابقة الدخول افتراضياً في الواجهة الأمامية احتياطياً
-            if (username === 'admin' && password === '123456') {
-                sessionStorage.setItem('loggedIn', 'true');
-                showMainApp();
-            } else {
-                showError('اسم المستخدم أو كلمة المرور غير صحيحة');
-            }
-        } finally {
-            loginBtn.innerText = 'دخول النظام';
+        if (u === 'admin' && p === '123456') {
+            sessionStorage.setItem('isLoggedIn', 'true');
+            showMainApp();
+        } else {
+            err.innerText = 'اسم المستخدم أو كلمة المرور غير صحيحة!';
+            err.style.display = 'block';
         }
     });
-
-    function showError(msg) {
-        const errorAlert = document.getElementById('errorAlert');
-        errorAlert.innerText = msg;
-        errorAlert.style.display = 'block';
-    }
 
     function showMainApp() {
         document.getElementById('loginSection').style.display = 'none';
@@ -217,96 +187,91 @@
     }
 
     function logout() {
-        sessionStorage.removeItem('loggedIn');
+        sessionStorage.removeItem('isLoggedIn');
         location.reload();
     }
 
-    if (sessionStorage.getItem('loggedIn') === 'true') {
+    if (sessionStorage.getItem('isLoggedIn') === 'true') {
         showMainApp();
     }
 
-    async function loadData() {
-        try {
-            const res = await fetch('/api/status');
-            const data = await res.json();
-            document.getElementById('count').innerText = data.totalBooked || 0;
-            
-            const tbody = document.getElementById('tableBody');
-            const mBody = document.getElementById('manifestBody');
-            tbody.innerHTML = '';
-            mBody.innerHTML = '';
+    function loadData() {
+        document.getElementById('count').innerText = localBookings.length;
+        
+        const tbody = document.getElementById('tableBody');
+        const mBody = document.getElementById('manifestBody');
+        tbody.innerHTML = '';
+        mBody.innerHTML = '';
 
-            if (data.bookings) {
-                data.bookings.forEach(b => {
-                    tbody.innerHTML += `
-                        <tr>
-                            <td><b>${b.seat}</b></td>
-                            <td>${b.name}</td>
-                            <td>${b.passport}</td>
-                            <td>${b.route}</td>
-                            <td>${b.travelDate}</td>
-                            <td>${b.source}</td>
-                            <td><small>${b.id}</small></td>
-                            <td>
-                                <button class="btn-warning" onclick="editBooking('${b.id}', '${b.name}', '${b.passport}', '${b.route}', '${b.travelDate}', '${b.source}')">تعديل</button>
-                                <button class="btn-danger" onclick="deleteBooking('${b.id}')">حذف</button>
-                            </td>
-                        </tr>
-                    `;
+        localBookings.forEach((b, index) => {
+            b.seat = index + 1; // تحديث أرقام المقاعد
+            tbody.innerHTML += `
+                <tr>
+                    <td><b>${b.seat}</b></td>
+                    <td>${b.name}</td>
+                    <td>${b.passport}</td>
+                    <td>${b.route}</td>
+                    <td>${b.travelDate}</td>
+                    <td>${b.source}</td>
+                    <td><small>${b.id}</small></td>
+                    <td>
+                        <button class="btn-warning" onclick="editBooking('${b.id}')">تعديل</button>
+                        <button class="btn-danger" onclick="deleteBooking('${b.id}')">حذف</button>
+                    </td>
+                </tr>
+            `;
 
-                    mBody.innerHTML += `
-                        <tr>
-                            <td>${b.seat}</td>
-                            <td>${b.name}</td>
-                            <td>${b.passport}</td>
-                            <td>${b.route}</td>
-                            <td>${b.travelDate}</td>
-                            <td>${b.source}</td>
-                        </tr>
-                    `;
-                });
-            }
-        } catch (e) {
-            console.log('ملاحظة: تعذر الاتصال بسيرفر البيانات، أعد التحديث.');
-        }
+            mBody.innerHTML += `
+                <tr>
+                    <td>${b.seat}</td>
+                    <td>${b.name}</td>
+                    <td>${b.passport}</td>
+                    <td>${b.route}</td>
+                    <td>${b.travelDate}</td>
+                    <td>${b.source}</td>
+                </tr>
+            `;
+        });
+
+        localStorage.setItem('ferry_bookings', JSON.stringify(localBookings));
     }
 
-    document.getElementById('bookingForm').addEventListener('submit', async (e) => {
+    document.getElementById('bookingForm').addEventListener('submit', function(e) {
         e.preventDefault();
         const editId = document.getElementById('editId').value;
-        const payload = {
-            name: document.getElementById('name').value,
-            passport: document.getElementById('passport').value,
-            route: document.getElementById('route').value,
-            travelDate: document.getElementById('travelDate').value,
-            source: document.getElementById('source').value
-        };
+        const name = document.getElementById('name').value;
+        const passport = document.getElementById('passport').value;
+        const route = document.getElementById('route').value;
+        const travelDate = document.getElementById('travelDate').value;
+        const source = document.getElementById('source').value;
 
-        try {
-            let res;
-            if(editId) {
-              res = await fetch('/api/book/' + editId, { method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload) });
-            } else {
-                res = await fetch('/api/book', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload) });
+        if (editId) {
+            const idx = localBookings.findIndex(b => b.id === editId);
+            if (idx !== -1) {
+                localBookings[idx] = { ...localBookings[idx], name, passport, route, travelDate, source };
             }
+        } else {
+            const newTicket = {
+                id: 'TKT-' + Math.floor(10000 + Math.random() * 90000),
+                name,
+                passport,
+                route,
+                travelDate,
+                source
+            };
+            localBookings.push(newTicket);
 
-            const data = await res.json();
-            if(data.success) {
-                if(!editId) {
-                    document.getElementById('tName').innerText = data.ticket.name;
-                    document.getElementById('tSeat').innerText = data.ticket.seat;
-                    document.getElementById('tDate').innerText = data.ticket.travelDate;
-                    document.getElementById('tRoute').innerText = data.ticket.route;
-                    document.getElementById('tSource').innerText = data.ticket.source;
-                    JsBarcode("#barcode", data.ticket.id, { format: "CODE128", width: 2, height: 40 });
-                    document.getElementById('ticketResult').style.display = 'block';
-                }
-                resetForm();
-                loadData();
-            }
-        } catch (e) {
-            alert('حدث خطأ أثناء حفظ الحجز، اتأكد من تشغيل الـ Backend.');
+            document.getElementById('tName').innerText = name;
+            document.getElementById('tSeat').innerText = localBookings.length;
+            document.getElementById('tDate').innerText = travelDate;
+            document.getElementById('tRoute').innerText = route;
+            document.getElementById('tSource').innerText = source;
+            JsBarcode("#barcode", newTicket.id, { format: "CODE128", width: 2, height: 40 });
+            document.getElementById('ticketResult').style.display = 'block';
         }
+
+        resetForm();
+        loadData();
     });
 
     function downloadPDF() {
@@ -324,19 +289,22 @@
         html2pdf().set(opt).from(element).save();
     }
 
-    function editBooking(id, name, passport, route, travelDate, source) {
-        document.getElementById('editId').value = id;
-        document.getElementById('name').value = name;
-        document.getElementById('passport').value = passport;
-        document.getElementById('route').value = route;
-        document.getElementById('travelDate').value = travelDate;
-        document.getElementById('source').value = source;
-        document.getElementById('submitBtn').innerText = 'حفظ التعديلات';
+    function editBooking(id) {
+        const b = localBookings.find(item => item.id === id);
+        if (b) {
+            document.getElementById('editId').value = b.id;
+            document.getElementById('name').value = b.name;
+            document.getElementById('passport').value = b.passport;
+            document.getElementById('route').value = b.route;
+            document.getElementById('travelDate').value = b.travelDate;
+            document.getElementById('source').value = b.source;
+            document.getElementById('submitBtn').innerText = 'حفظ التعديلات';
+        }
     }
 
-    async function deleteBooking(id) {
-        if(confirm('هل أنت تأكد من حذف هذا الحجز؟')) {
-            await fetch('/api/book/' + id, { method: 'DELETE' });
+    function deleteBooking(id) {
+        if (confirm('هل أنت تأكد من حذف هذا الحجز؟')) {
+            localBookings = localBookings.filter(b => b.id !== id);
             loadData();
         }
     }
@@ -355,4 +323,4 @@
 </script>
 
 </body>
-</html>  
+</html>
