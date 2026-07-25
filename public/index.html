@@ -43,18 +43,18 @@
 <div id="loginSection" class="login-box">
     <h2>🔒 تسجيل الدخول</h2>
     <p style="color: #64748b; font-size: 0.9rem;">نظام حجز رحلات البصرة - المحمرة</p>
-    <form id="loginForm">
+    <div>
         <div class="form-group">
             <label>اسم المستخدم:</label>
-            <input type="text" id="username" required placeholder="أدخل اسم المستخدم">
+            <input type="text" id="username" value="admin" placeholder="أدخل اسم المستخدم">
         </div>
         <div class="form-group">
             <label>كلمة المرور:</label>
-            <input type="password" id="password" required placeholder="أدخل كلمة المرور">
+            <input type="password" id="password" value="123456" placeholder="أدخل كلمة المرور">
         </div>
-        <button type="submit" id="loginBtn" class="btn-primary" style="margin-top: 10px;">دخول النظام</button>
+        <button type="button" onclick="checkLogin()" class="btn-primary" style="margin-top: 10px;">دخول النظام</button>
         <div id="errorAlert" class="error-msg"></div>
-    </form>
+    </div>
 </div>
 
 <div id="mainApp" class="container">
@@ -65,7 +65,7 @@
     <hr>
 
     <h3>📝 إدخال حجز جديد</h3>
-    <form id="bookingForm">
+    <form id="bookingForm" onsubmit="handleBooking(event)">
         <input type="hidden" id="editId">
         <div class="grid">
             <div class="form-group">
@@ -115,14 +115,14 @@
                 <svg id="barcode"></svg>
             </div>
         </div>
-        <button class="btn-pdf" onclick="downloadPDF()">📄 تنزيل التذكرة بصيغة PDF</button>
+        <button type="button" class="btn-pdf" onclick="downloadPDF()">📄 تنزيل التذكرة بصيغة PDF</button>
     </div>
 
     <hr style="margin: 30px 0;">
 
     <div style="display: flex; justify-content: space-between; align-items: center;">
         <h3>📊 سجل الحجوزات والتقارير (<span id="count">0</span> / 235)</h3>
-        <button class="btn-print" onclick="printManifest()">🖨️ طباعة المنفيست الرسمي</button>
+        <button type="button" class="btn-print" onclick="printManifest()">🖨️ طباعة المنفيست الرسمي</button>
     </div>
 
     <table id="manifestTable">
@@ -161,12 +161,9 @@
 </div>
 
 <script>
-    // تخزين الحجوزات محلياً لتفادي مشاكل الاتصال بالسيرفر
     let localBookings = JSON.parse(localStorage.getItem('ferry_bookings') || '[]');
 
-    // تسجيل الدخول المباشر
-    document.getElementById('loginForm').addEventListener('submit', function(e) {
-        e.preventDefault();
+    function checkLogin() {
         const u = document.getElementById('username').value.trim();
         const p = document.getElementById('password').value.trim();
         const err = document.getElementById('errorAlert');
@@ -178,7 +175,7 @@
             err.innerText = 'اسم المستخدم أو كلمة المرور غير صحيحة!';
             err.style.display = 'block';
         }
-    });
+    }
 
     function showMainApp() {
         document.getElementById('loginSection').style.display = 'none';
@@ -204,7 +201,7 @@
         mBody.innerHTML = '';
 
         localBookings.forEach((b, index) => {
-            b.seat = index + 1; // تحديث أرقام المقاعد
+            b.seat = index + 1;
             tbody.innerHTML += `
                 <tr>
                     <td><b>${b.seat}</b></td>
@@ -215,8 +212,8 @@
                     <td>${b.source}</td>
                     <td><small>${b.id}</small></td>
                     <td>
-                        <button class="btn-warning" onclick="editBooking('${b.id}')">تعديل</button>
-                        <button class="btn-danger" onclick="deleteBooking('${b.id}')">حذف</button>
+                        <button type="button" class="btn-warning" onclick="editBooking('${b.id}')">تعديل</button>
+                        <button type="button" class="btn-danger" onclick="deleteBooking('${b.id}')">حذف</button>
                     </td>
                 </tr>
             `;
@@ -236,7 +233,7 @@
         localStorage.setItem('ferry_bookings', JSON.stringify(localBookings));
     }
 
-    document.getElementById('bookingForm').addEventListener('submit', function(e) {
+    function handleBooking(e) {
         e.preventDefault();
         const editId = document.getElementById('editId').value;
         const name = document.getElementById('name').value;
@@ -272,7 +269,7 @@
 
         resetForm();
         loadData();
-    });
+    }
 
     function downloadPDF() {
         const element = document.getElementById('ticketPrintArea');
