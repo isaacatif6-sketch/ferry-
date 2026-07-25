@@ -5,9 +5,22 @@ const app = express();
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
-// خزن الحجوزات في الذاكرة (سجل الحجوزات والتقارير)
+// بيانات تسجيل الدخول (تقدر تغير اليوزر والباسوورد من هنا)
+const ADMIN_USER = "admin";
+const ADMIN_PASS = "123456";
+
 let bookings = [];
 let maxSeats = 235;
+
+// التحقق من تسجيل الدخول
+app.post('/api/login', (req, res) => {
+    const { username, password } = req.body;
+    if (username === ADMIN_USER && password === ADMIN_PASS) {
+        res.json({ success: true });
+    } else {
+        res.json({ success: false, error: 'اسم المستخدم أو كلمة المرور غير صحيحة' });
+    }
+});
 
 // جلب حالة المقاعد والتقارير
 app.get('/api/status', (req, res) => {
@@ -33,7 +46,7 @@ app.post('/api/book', (req, res) => {
         passport,
         route,
         travelDate,
-        source: source || 'مكتب البصرة', // مصدر الحجز
+        source: source || 'مكتب البصرة',
         createdDate: new Date().toLocaleDateString('ar-IQ')
     };
 
@@ -59,7 +72,6 @@ app.put('/api/book/:id', (req, res) => {
 app.delete('/api/book/:id', (req, res) => {
     const { id } = req.params;
     bookings = bookings.filter(b => b.id !== id);
-    // إعادة ترتيب أرقام المقاعد بعد الحذف
     bookings.forEach((b, i) => b.seat = i + 1);
     res.json({ success: true });
 });
