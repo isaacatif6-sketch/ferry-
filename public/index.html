@@ -3,99 +3,235 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>نظام حجز سفينة البصرة - المحمرة</title>
+    <title>نظام حجز إدارة رحلات السفينة</title>
+    <!-- مكتبة الباركود -->
+    <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
     <style>
-        body { font-family: system-ui, -apple-system, sans-serif; background-color: #f4f6f9; margin: 0; padding: 20px; direction: rtl; }
-        .container { max-width: 500px; margin: 20px auto; background: #fff; padding: 25px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
-        h2 { color: #1e3a8a; text-align: center; margin-top: 0; }
-        .status-box { background: #e0f2fe; border: 1px solid #bae6fd; padding: 15px; border-radius: 8px; text-align: center; margin-bottom: 20px; }
-        .status-box span { font-weight: bold; color: #0369a1; font-size: 1.2rem; }
-        .form-group { margin-bottom: 15px; }
-        label { display: block; margin-bottom: 5px; font-weight: bold; color: #334155; }
-        input, select { width: 100%; padding: 10px; border: 1px solid #cbd5e1; border-radius: 6px; box-sizing: border-box; font-size: 1rem; }
-        button { width: 100%; padding: 12px; background-color: #0284c7; color: white; border: none; border-radius: 6px; font-size: 1.1rem; font-weight: bold; cursor: pointer; transition: background 0.2s; }
-        button:hover { background-color: #0369a1; }
-        .ticket { display: none; margin-top: 20px; padding: 15px; border: 2px dashed #0284c7; background: #f0fdf4; border-radius: 8px; }
-        .ticket h3 { color: #166534; margin-top: 0; }
+        body { font-family: system-ui, sans-serif; background: #f1f5f9; margin: 0; padding: 20px; direction: rtl; }
+        .container { max-width: 900px; margin: 0 auto; background: #fff; padding: 25px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
+        h2, h3 { color: #0f172a; text-align: center; }
+        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+        .form-group { margin-bottom: 12px; }
+        label { display: block; font-weight: bold; margin-bottom: 5px; color: #334155; }
+        input, select { width: 100%; padding: 10px; border: 1px solid #cbd5e1; border-radius: 6px; box-sizing: border-box; }
+        button { padding: 10px 20px; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; }
+        .btn-primary { background: #0284c7; color: white; width: 100%; font-size: 1.1rem; }
+        .btn-danger { background: #ef4444; color: white; }
+        .btn-warning { background: #f59e0b; color: white; }
+        .btn-print { background: #10b981; color: white; margin-bottom: 10px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+        th, td { border: 1px solid #e2e8f0; padding: 10px; text-align: center; }
+        th { background: #f8fafc; }
+        .ticket-box { display: none; margin-top: 20px; padding: 20px; border: 2px dashed #0284c7; background: #f0fdf4; border-radius: 8px; text-align: center; }
+        @media print {
+            body * { visibility: hidden; }
+            #manifestSection, #manifestSection * { visibility: visible; }
+            #manifestSection { position: absolute; left: 0; top: 0; width: 100%; }
+        }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h2>🚢 نظام حجز الرحلات البحرية</h2>
-    <p style="text-align: center; color: #64748b; font-size: 0.9rem;">خط البصرة ⇆ المحمرة</p>
+    <h2>🚢 نظام حجز وإدارة رحلات (البصرة - المحمرة)</h2>
+    <hr>
 
-    <div class="status-box">
-        المقاعد المتبقية: <span id="remaining">جاري التحميل...</span> / 235
-    </div>
-
+    <!-- استمارة الحجز -->
+    <h3>📝 إدخال حجز جديد</h3>
     <form id="bookingForm">
-        <div class="form-group">
-            <label>اسم المسافر الثلاثي:</label>
-            <input type="text" id="name" required placeholder="أدخل الاسم الكامل">
+        <input type="hidden" id="editId">
+        <div class="grid">
+            <div class="form-group">
+                <label>اسم المسافر الثلاثي:</label>
+                <input type="text" id="name" required placeholder="أدخل الاسم الكامل">
+            </div>
+            <div class="form-group">
+                <label>رقم الجواز:</label>
+                <input type="text" id="passport" required placeholder="أدخل رقم الجواز">
+            </div>
+            <div class="form-group">
+                <label>مسار الرحلة:</label>
+                <select id="route">
+                    <option value="البصرة -> المحمرة">البصرة ← المحمرة</option>
+                    <option value="المحمرة -> البصرة">المحمرة ← البصرة</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>موعد وتاريخ السفر:</label>
+                <input type="date" id="travelDate" required>
+            </div>
+            <div class="form-group" style="grid-column: span 2;">
+                <label>مصدر الحجز (المكتب):</label>
+                <select id="source">
+                    <option value="مكتب البصرة">مكتب البصرة</option>
+                    <option value="مكتب المحمرة">مكتب المحمرة</option>
+                    <option value="حجز أونلاين">حجز أونلاين</option>
+                </select>
+            </div>
         </div>
-        <div class="form-group">
-            <label>رقم الجواز:</label>
-            <input type="text" id="passport" required placeholder="أدخل رقم الجواز">
-        </div>
-        <div class="form-group">
-            <label>مسار الرحلة:</label>
-            <select id="route">
-                <option value="البصرة -> المحمرة">البصرة ← المحمرة</option>
-                <option value="المحمرة -> البصرة">المحمرة ← البصرة</option>
-            </select>
-        </div>
-        <button type="submit">تأكيد الحجز إصدار التذكرة</button>
+        <button type="submit" id="submitBtn" class="btn-primary">تأكيد الحجز وإصدار التذكرة</button>
     </form>
 
-    <div id="ticketResult" class="ticket">
-        <h3>✅ تم الحجز بنجاح!</h3>
-        <p><strong>رقم التذكرة:</strong> <span id="tktId"></span></p>
-        <p><strong>رقم المقعد:</strong> <span id="tktSeat"></span></p>
-        <p><strong>الاسم:</strong> <span id="tktName"></span></p>
-        <p><strong>الخط:</strong> <span id="tktRoute"></span></p>
-        <p><strong>التاريخ:</strong> <span id="tktDate"></span></p>
+    <!-- التذكرة والباركود -->
+    <div id="ticketResult" class="ticket-box">
+        <h3 style="color:#166534; margin:0;">🎫 تذكرة سفر مؤكدة</h3>
+        <p>الاسم: <b id="tName"></b> | رقم المقعد: <b id="tSeat"></b> | الموعد: <b id="tDate"></b></p>
+        <p>المسار: <b id="tRoute"></b> | المصدر: <b id="tSource"></b></p>
+        <svg id="barcode"></svg>
     </div>
+
+    <hr style="margin: 30px 0;">
+    <!-- خزن التقارير والمنفيست -->
+    <div style="display: flex; justify-content: space-between; align-items: center;">
+        <h3>📊 سجل الحجوزات والتقارير (<span id="count">0</span> / 235)</h3>
+        <button class="btn-print" onclick="printManifest()">🖨️ طباعة المنفيست الرسمي</button>
+    </div>
+
+    <!-- جدول الحجوزات وإدارتها -->
+    <table id="manifestTable">
+        <thead>
+            <tr>
+                <th>المقعد</th>
+                <th>الاسم</th>
+                <th>الجواز</th>
+                <th>المسار</th>
+                <th>تاريخ السفر</th>
+                <th>المصدر</th>
+                <th>الباركود</th>
+                <th>الإجراءات</th>
+            </tr>
+        </thead>
+        <tbody id="tableBody"></tbody>
+    </table>
+</div>
+
+<!-- منطقة طباعة المنفيست -->
+<div id="manifestSection" style="display:none; padding:20px;">
+    <h2 style="text-align:center;">قائمة منفيست مسافري الرحلة البحرية</h2>
+    <p style="text-align:center;">خط: البصرة ⇆ المحمرة</p>
+    <table style="width:100%; border-collapse:collapse; text-align:center;" border="1">
+        <thead>
+            <tr>
+                <th>ت</th>
+                <th>اسم المسافر</th>
+                <th>رقم الجواز</th>
+                <th>الجهة</th>
+                <th>تاريخ السفر</th>
+                <th>مصدر الحجز</th>
+            </tr>
+        </thead>
+        <tbody id="manifestBody"></tbody>
+    </table>
 </div>
 
 <script>
-    async function loadStatus() {
-        try {
-            const res = await fetch('/api/status');
-            const data = await res.json();
-            document.getElementById('remaining').innerText = data.remaining;
-        } catch (e) {
-            document.getElementById('remaining').innerText = '235';
-        }
+    async function loadData() {
+        const res = await fetch('/api/status');
+        const data = await res.json();
+        document.getElementById('count').innerText = data.totalBooked;
+        
+        const tbody = document.getElementById('tableBody');
+        const mBody = document.getElementById('manifestBody');
+        tbody.innerHTML = '';
+        mBody.innerHTML = '';
+
+        data.bookings.forEach(b => {
+            // الجدول العام
+            tbody.innerHTML += `
+                <tr>
+                    <td><b>${b.seat}</b></td>
+                    <td>${b.name}</td>
+                    <td>${b.passport}</td>
+                    <td>${b.route}</td>
+                    <td>${b.travelDate}</td>
+                    <td>${b.source}</td>
+                    <td><small>${b.id}</small></td>
+                    <td>
+                        <button class="btn-warning" onclick="editBooking('${b.id}', '${b.name}', '${b.passport}', '${b.route}', '${b.travelDate}', '${b.source}')">تعديل</button>
+                        <button class="btn-danger" onclick="deleteBooking('${b.id}')">حذف</button>
+                    </td>
+                </tr>
+            `;
+
+            // جدول المنفيست للطباعة
+            mBody.innerHTML += `
+                <tr>
+                    <td>${b.seat}</td>
+                    <td>${b.name}</td>
+                    <td>${b.passport}</td>
+                    <td>${b.route}</td>
+                    <td>${b.travelDate}</td>
+                    <td>${b.source}</td>
+                </tr>
+            `;
+        });
     }
 
     document.getElementById('bookingForm').addEventListener('submit', async (e) => {
         e.preventDefault();
-        const name = document.getElementById('name').value;
-        const passport = document.getElementById('passport').value;
-        const route = document.getElementById('route').value;
+        const editId = document.getElementById('editId').value;
+        const payload = {
+            name: document.getElementById('name').value,
+            passport: document.getElementById('passport').value,
+            route: document.getElementById('route').value,
+            travelDate: document.getElementById('travelDate').value,
+            source: document.getElementById('source').value
+        };
 
-        const res = await fetch('/api/book', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name, passport, route })
-        });
+        let res;
+        if(editId) {
+            res = await fetch('/api/book/' + editId, { method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload) });
+        } else {
+            res = await fetch('/api/book', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload) });
+        }
 
         const data = await res.json();
-        if (data.success) {
-            document.getElementById('tktId').innerText = data.ticket.id;
-            document.getElementById('tktSeat').innerText = data.ticket.seat;
-          document.getElementById('tktName').innerText = data.ticket.name;
-            document.getElementById('tktRoute').innerText = data.ticket.route;
-            document.getElementById('tktDate').innerText = data.ticket.date;
-            document.getElementById('ticketResult').style.display = 'block';
-            loadStatus();
-        } else {
-            alert(data.error || 'حدث خطأ في الحجز');
+        if(data.success) {
+            if(!editId) {
+                document.getElementById('tName').innerText = data.ticket.name;
+                document.
+                    getElementById('tSeat').innerText = data.ticket.seat;
+                document.getElementById('tDate').innerText = data.ticket.travelDate;
+                document.getElementById('tRoute').innerText = data.ticket.route;
+                document.getElementById('tSource').innerText = data.ticket.source;
+                JsBarcode("#barcode", data.ticket.id, { format: "CODE128", width: 2, height: 40 });
+                document.getElementById('ticketResult').style.display = 'block';
+            }
+            resetForm();
+            loadData();
         }
     });
 
-    loadStatus();
+    function editBooking(id, name, passport, route, travelDate, source) {
+        document.getElementById('editId').value = id;
+        document.getElementById('name').value = name;
+        document.getElementById('passport').value = passport;
+        document.getElementById('route').value = route;
+        document.getElementById('travelDate').value = travelDate;
+        document.getElementById('source').value = source;
+        document.getElementById('submitBtn').innerText = 'حفظ التعديلات';
+    }
+
+    async function deleteBooking(id) {
+        if(confirm('هل أنت تأكد من حذف هذا الحجز؟')) {
+            await fetch('/api/book/' + id, { method: 'DELETE' });
+            loadData();
+        }
+    }
+
+    function resetForm() {
+        document.getElementById('bookingForm').reset();
+        document.getElementById('editId').value = '';
+        document.getElementById('submitBtn').innerText = 'تأكيد الحجز وإصدار التذكرة';
+    }
+
+    function printManifest() {
+        document.getElementById('manifestSection').style.display = 'block';
+        window.print();
+        document.getElementById('manifestSection').style.display = 'none';
+    }
+
+    loadData();
 </script>
 
 </body>
