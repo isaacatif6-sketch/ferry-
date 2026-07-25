@@ -4,14 +4,14 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>نظام حجز إدارة رحلات السفينة</title>
-    <!-- مكتبة الباركود -->
     <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
     <style>
         body { font-family: system-ui, sans-serif; background: #f1f5f9; margin: 0; padding: 20px; direction: rtl; }
         .container { max-width: 900px; margin: 0 auto; background: #fff; padding: 25px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
+        .login-box { max-width: 380px; margin: 80px auto; background: #fff; padding: 30px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.1); text-align: center; }
         h2, h3 { color: #0f172a; text-align: center; }
         .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
-        .form-group { margin-bottom: 12px; }
+        .form-group { margin-bottom: 12px; text-align: right; }
         label { display: block; font-weight: bold; margin-bottom: 5px; color: #334155; }
         input, select { width: 100%; padding: 10px; border: 1px solid #cbd5e1; border-radius: 6px; box-sizing: border-box; }
         button { padding: 10px 20px; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; }
@@ -23,6 +23,11 @@
         th, td { border: 1px solid #e2e8f0; padding: 10px; text-align: center; }
         th { background: #f8fafc; }
         .ticket-box { display: none; margin-top: 20px; padding: 20px; border: 2px dashed #0284c7; background: #f0fdf4; border-radius: 8px; text-align: center; }
+        
+        /* إخفاء النظام الرئيسي إجبارياً حتى تسجيل الدخول */
+        #mainApp { display: none !important; }
+        #loginSection { display: block !important; }
+
         @media print {
             body * { visibility: hidden; }
             #manifestSection, #manifestSection * { visibility: visible; }
@@ -32,8 +37,29 @@
 </head>
 <body>
 
-<div class="container">
-    <h2>🚢 نظام حجز وإدارة رحلات (البصرة - المحمرة)</h2>
+<!-- شاشة تسجيل الدخول -->
+<div id="loginSection" class="login-box">
+    <h2>🔒 تسجيل الدخول</h2>
+    <p style="color: #64748b; font-size: 0.9rem;">نظام حجز رحلات البصرة - المحمرة</p>
+    <form id="loginForm">
+        <div class="form-group">
+            <label>اسم المستخدم:</label>
+            <input type="text" id="username" required placeholder="أدخل اسم المستخدم">
+        </div>
+        <div class="form-group">
+            <label>كلمة المرور:</label>
+            <input type="password" id="password" required placeholder="أدخل كلمة المرور">
+        </div>
+        <button type="submit" class="btn-primary" style="margin-top: 10px;">دخول النظام</button>
+    </form>
+</div>
+
+<!-- النظام الرئيسي -->
+<div id="mainApp" class="container">
+    <div style="display: flex; justify-content: space-between; align-items: center;">
+        <h2>🚢 نظام حجز وإدارة رحلات السفينة</h2>
+        <button class="btn-danger" onclick="logout()">تسجيل خروج</button>
+    </div>
     <hr>
 
     <!-- استمارة الحجز -->
@@ -81,13 +107,14 @@
     </div>
 
     <hr style="margin: 30px 0;">
-    <!-- خزن التقارير والمنفيست -->
+
+    <!-- التقارير والمنفيست -->
     <div style="display: flex; justify-content: space-between; align-items: center;">
         <h3>📊 سجل الحجوزات والتقارير (<span id="count">0</span> / 235)</h3>
         <button class="btn-print" onclick="printManifest()">🖨️ طباعة المنفيست الرسمي</button>
     </div>
 
-    <!-- جدول الحجوزات وإدارتها -->
+    <!-- جدول الحجوزات -->
     <table id="manifestTable">
         <thead>
             <tr>
@@ -125,6 +152,41 @@
 </div>
 
 <script>
+    document.getElementById('loginForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const username = document.getElementById('username').value;
+        const password = document.getElementById('password').value;
+
+        const res = await fetch('/api/login', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ username, password })
+        });
+        const data = await res.json();
+
+        if(data.success) {
+            sessionStorage.setItem('loggedIn', 'true');
+            showMainApp();
+        } else {
+            alert(data.error);
+        }
+    });
+
+    function showMainApp() {
+        document.getElementById('loginSection').style.setProperty('display', 'none', 'important');
+        document.getElementById('mainApp').style.setProperty('display', 'block', 'important');
+        loadData();
+    }
+
+    function logout() {
+        sessionStorage.removeItem('loggedIn');
+        location.reload();
+    }
+
+    if(sessionStorage.getItem('loggedIn') === 'true') {
+        showMainApp();
+    }
+
     async function loadData() {
         const res = await fetch('/api/status');
         const data = await res.json();
@@ -132,11 +194,11 @@
         
         const tbody = document.getElementById('tableBody');
         const mBody = document.getElementById('manifestBody');
-        tbody.innerHTML = '';
+        tbody.
+            innerHTML = '';
         mBody.innerHTML = '';
 
         data.bookings.forEach(b => {
-            // الجدول العام
             tbody.innerHTML += `
                 <tr>
                     <td><b>${b.seat}</b></td>
@@ -153,7 +215,6 @@
                 </tr>
             `;
 
-            // جدول المنفيست للطباعة
             mBody.innerHTML += `
                 <tr>
                     <td>${b.seat}</td>
@@ -189,8 +250,7 @@
         if(data.success) {
             if(!editId) {
                 document.getElementById('tName').innerText = data.ticket.name;
-                document.
-                    getElementById('tSeat').innerText = data.ticket.seat;
+                document.getElementById('tSeat').innerText = data.ticket.seat;
                 document.getElementById('tDate').innerText = data.ticket.travelDate;
                 document.getElementById('tRoute').innerText = data.ticket.route;
                 document.getElementById('tSource').innerText = data.ticket.source;
@@ -230,8 +290,6 @@
         window.print();
         document.getElementById('manifestSection').style.display = 'none';
     }
-
-    loadData();
 </script>
 
 </body>
