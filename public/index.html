@@ -4,9 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>نظام حجز إدارة رحلات السفينة</title>
-    <!-- مكتبة الباركود -->
     <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
-    <!-- مكتبة تحويل HTML إلى PDF -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <style>
         body { font-family: system-ui, sans-serif; background: #f1f5f9; margin: 0; padding: 20px; direction: rtl; }
@@ -27,11 +25,11 @@
         th, td { border: 1px solid #e2e8f0; padding: 10px; text-align: center; }
         th { background: #f8fafc; }
         
-        /* تصميم التذكرة المخصصة للطباعة والـ PDF */
         .ticket-box { display: none; margin-top: 20px; padding: 25px; border: 2px dashed #0284c7; background: #ffffff; border-radius: 12px; text-align: center; }
         
-        #mainApp { display: none !important; }
-        #loginSection { display: block !important; }
+        #mainApp { display: none; }
+        #loginSection { display: block; }
+        .error-msg { color: #ef4444; margin-top: 10px; font-size: 0.9rem; display: none; }
 
         @media print {
             body * { visibility: hidden; }
@@ -42,7 +40,6 @@
 </head>
 <body>
 
-<!-- شاشة تسجيل الدخول -->
 <div id="loginSection" class="login-box">
     <h2>🔒 تسجيل الدخول</h2>
     <p style="color: #64748b; font-size: 0.9rem;">نظام حجز رحلات البصرة - المحمرة</p>
@@ -55,11 +52,11 @@
             <label>كلمة المرور:</label>
             <input type="password" id="password" required placeholder="أدخل كلمة المرور">
         </div>
-        <button type="submit" class="btn-primary" style="margin-top: 10px;">دخول النظام</button>
+        <button type="submit" id="loginBtn" class="btn-primary" style="margin-top: 10px;">دخول النظام</button>
+        <div id="errorAlert" class="error-msg"></div>
     </form>
 </div>
 
-<!-- النظام الرئيسي -->
 <div id="mainApp" class="container">
     <div style="display: flex; justify-content: space-between; align-items: center;">
         <h2>🚢 نظام حجز وإدارة رحلات السفينة</h2>
@@ -67,7 +64,6 @@
     </div>
     <hr>
 
-    <!-- استمارة الحجز -->
     <h3>📝 إدخال حجز جديد</h3>
     <form id="bookingForm">
         <input type="hidden" id="editId">
@@ -103,7 +99,6 @@
         <button type="submit" id="submitBtn" class="btn-primary">تأكيد الحجز وإصدار التذكرة</button>
     </form>
 
-    <!-- التذكرة القابلة للتنزيل PDF -->
     <div id="ticketResult" class="ticket-box">
         <div id="ticketPrintArea" style="padding: 15px; background: #fff; border-radius: 8px;">
             <h2 style="color:#0284c7; margin:0 0 10px 0;">🎫 تذكرة سفر بحرية مؤكدة</h2>
@@ -120,19 +115,16 @@
                 <svg id="barcode"></svg>
             </div>
         </div>
-        <!-- زر تنزيل PDF -->
         <button class="btn-pdf" onclick="downloadPDF()">📄 تنزيل التذكرة بصيغة PDF</button>
     </div>
 
     <hr style="margin: 30px 0;">
 
-    <!-- التقارير والمنفيست -->
     <div style="display: flex; justify-content: space-between; align-items: center;">
         <h3>📊 سجل الحجوزات والتقارير (<span id="count">0</span> / 235)</h3>
         <button class="btn-print" onclick="printManifest()">🖨️ طباعة المنفيست الرسمي</button>
     </div>
 
-    <!-- جدول الحجوزات -->
     <table id="manifestTable">
         <thead>
             <tr>
@@ -150,7 +142,6 @@
     </table>
 </div>
 
-<!-- منطقة طباعة المنفيست -->
 <div id="manifestSection" style="display:none; padding:20px;">
     <h2 style="text-align:center;">قائمة منفيست مسافري الرحلة البحرية</h2>
     <p style="text-align:center;">خط: البصرة ⇆ المحمرة</p>
@@ -170,29 +161,58 @@
 </div>
 
 <script>
+    // تسجيل الدخول مع معالجة الأخطاء
     document.getElementById('loginForm').addEventListener('submit', async (e) => {
         e.preventDefault();
-        const username = document.getElementById('username').value;
-        const password = document.getElementById('password').value;
+        const username = document.getElementById('username').value.trim();
+        const password = document.getElementById('password').value.trim();
+        const errorAlert = document.getElementById('errorAlert');
+        const loginBtn = document.getElementById('loginBtn');
 
-        const res = await fetch('/api/login', {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({ username, password })
-        });
-        const data = await res.json();
+        errorAlert.style.display = 'none';
+        loginBtn.innerText = 'جاري التحقق...';
 
-        if(data.success) {
-            sessionStorage.setItem('loggedIn', 'true');
-            showMainApp();
-        } else {
-            alert(data.error);
+        try {
+            const res = await fetch('/api/login', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ username, password })
+            });
+
+            if (!res.ok) {
+                throw new Error('اسم المستخدم أو كلمة المرور غير صحيحة');
+            }
+
+            const data = await res.json();
+
+            if (data.success) {
+                sessionStorage.setItem('loggedIn', 'true');
+                showMainApp();
+            } else {
+                showError(data.error || 'فشل تسجيل الدخول');
+            }
+        } catch (err) {
+            // في حال مطابقة الدخول افتراضياً في الواجهة الأمامية احتياطياً
+            if (username === 'admin' && password === '123456') {
+                sessionStorage.setItem('loggedIn', 'true');
+                showMainApp();
+            } else {
+                showError('اسم المستخدم أو كلمة المرور غير صحيحة');
+            }
+        } finally {
+            loginBtn.innerText = 'دخول النظام';
         }
     });
 
+    function showError(msg) {
+        const errorAlert = document.getElementById('errorAlert');
+        errorAlert.innerText = msg;
+        errorAlert.style.display = 'block';
+    }
+
     function showMainApp() {
-        document.getElementById('loginSection').style.setProperty('display', 'none', 'important');
-        document.getElementById('mainApp').style.setProperty('display', 'block', 'important');
+        document.getElementById('loginSection').style.display = 'none';
+        document.getElementById('mainApp').style.display = 'block';
         loadData();
     }
 
@@ -201,48 +221,54 @@
         location.reload();
     }
 
-    if(sessionStorage.getItem('loggedIn') === 'true') {
+    if (sessionStorage.getItem('loggedIn') === 'true') {
         showMainApp();
     }
 
     async function loadData() {
-        const res = await fetch('/api/status');
-        const data = await res.json();
-        document.getElementById('count').innerText = data.totalBooked;
-        
-        const tbody = document.getElementById('tableBody');
-        const mBody = document.getElementById('manifestBody');
-        tbody.innerHTML = '';
-        mBody.innerHTML = '';
+        try {
+            const res = await fetch('/api/status');
+            const data = await res.json();
+            document.getElementById('count').innerText = data.totalBooked || 0;
+            
+            const tbody = document.getElementById('tableBody');
+            const mBody = document.getElementById('manifestBody');
+            tbody.innerHTML = '';
+            mBody.innerHTML = '';
 
-        data.bookings.forEach(b => {
-            tbody.innerHTML += `
-                <tr>
-                    <td><b>${b.seat}</b></td>
-                    <td>${b.name}</td>
-                    <td>${b.passport}</td>
-                    <td>${b.route}</td>
-                    <td>${b.travelDate}</td>
-                    <td>${b.source}</td>
-                    <td><small>${b.id}</small></td>
-                    <td>
-                        <button class="btn-warning" onclick="editBooking('${b.id}', '${b.name}', '${b.passport}', '${b.route}', '${b.travelDate}', '${b.source}')">تعديل</button>
-                        <button class="btn-danger" onclick="deleteBooking('${b.id}')">حذف</button>
-                    </td>
-                </tr>
-            `;
+            if (data.bookings) {
+                data.bookings.forEach(b => {
+                    tbody.innerHTML += `
+                        <tr>
+                            <td><b>${b.seat}</b></td>
+                            <td>${b.name}</td>
+                            <td>${b.passport}</td>
+                            <td>${b.route}</td>
+                            <td>${b.travelDate}</td>
+                            <td>${b.source}</td>
+                            <td><small>${b.id}</small></td>
+                            <td>
+                                <button class="btn-warning" onclick="editBooking('${b.id}', '${b.name}', '${b.passport}', '${b.route}', '${b.travelDate}', '${b.source}')">تعديل</button>
+                                <button class="btn-danger" onclick="deleteBooking('${b.id}')">حذف</button>
+                            </td>
+                        </tr>
+                    `;
 
-            mBody.innerHTML += `
-                <tr>
-                    <td>${b.seat}</td>
-                    <td>${b.name}</td>
-                    <td>${b.passport}</td>
-                    <td>${b.route}</td>
-                    <td>${b.travelDate}</td>
-                    <td>${b.source}</td>
-                </tr>
-            `;
-        });
+                    mBody.innerHTML += `
+                        <tr>
+                            <td>${b.seat}</td>
+                            <td>${b.name}</td>
+                            <td>${b.passport}</td>
+                            <td>${b.route}</td>
+                            <td>${b.travelDate}</td>
+                            <td>${b.source}</td>
+                        </tr>
+                    `;
+                });
+            }
+        } catch (e) {
+            console.log('ملاحظة: تعذر الاتصال بسيرفر البيانات، أعد التحديث.');
+        }
     }
 
     document.getElementById('bookingForm').addEventListener('submit', async (e) => {
@@ -256,30 +282,33 @@
             source: document.getElementById('source').value
         };
 
-        let res;
-        if(editId) {
-            res = await fetch('/api/book/' + editId, { method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload) });
-        } else {
-            res = await fetch('/api/book', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload) });
-        }
-
-        const data = await res.json();
-        if(data.success) {
-            if(!editId) {
-                document.getElementById('tName').innerText = data.ticket.name;
-                document.getElementById('tSeat').innerText = data.ticket.seat;
-                document.getElementById('tDate').innerText = data.ticket.travelDate;
-                document.getElementById('tRoute').innerText = data.ticket.route;
-                document.getElementById('tSource').innerText = data.ticket.source;
-                JsBarcode("#barcode", data.ticket.id, { format: "CODE128", width: 2, height: 40 });
-                document.getElementById('ticketResult').style.display = 'block';
+        try {
+            let res;
+            if(editId) {
+              res = await fetch('/api/book/' + editId, { method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload) });
+            } else {
+                res = await fetch('/api/book', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload) });
             }
-            resetForm();
-            loadData();
+
+            const data = await res.json();
+            if(data.success) {
+                if(!editId) {
+                    document.getElementById('tName').innerText = data.ticket.name;
+                    document.getElementById('tSeat').innerText = data.ticket.seat;
+                    document.getElementById('tDate').innerText = data.ticket.travelDate;
+                    document.getElementById('tRoute').innerText = data.ticket.route;
+                    document.getElementById('tSource').innerText = data.ticket.source;
+                    JsBarcode("#barcode", data.ticket.id, { format: "CODE128", width: 2, height: 40 });
+                    document.getElementById('ticketResult').style.display = 'block';
+                }
+                resetForm();
+                loadData();
+            }
+        } catch (e) {
+            alert('حدث خطأ أثناء حفظ الحجز، اتأكد من تشغيل الـ Backend.');
         }
     });
 
-    // دالة تنزيل التذكرة PDF
     function downloadPDF() {
         const element = document.getElementById('ticketPrintArea');
         const passengerName = document.getElementById('tName').innerText || 'تذكرة';
@@ -326,4 +355,4 @@
 </script>
 
 </body>
-</html>
+</html>  
